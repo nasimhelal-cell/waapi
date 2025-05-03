@@ -44,11 +44,11 @@ app.post("/webhook", (req, res) => {
     // Auto-reply via WhatsApp Cloud API
     axios
       .post(
-        `https://graph.facebook.com/v17.0/${phone_number_id}/messages?access_token=${token}`,
+        `https://graph.facebook.com/v22.0/${phone_number_id}/messages?access_token=${token}`,
         {
           messaging_product: "whatsapp",
           to: from,
-          text: { body: `Hi.. I'm Prasath, your message is: "${text}"` },
+          text: { body: `Hi.. I'm Jelle, your message is: "${text}"` },
         },
         { headers: { "Content-Type": "application/json" } }
       )
