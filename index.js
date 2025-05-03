@@ -1,3 +1,4 @@
+// api/index.js
 const express = require("express");
 const body_parser = require("body-parser");
 const axios = require("axios");
@@ -7,79 +8,71 @@ const serverless = require("serverless-http");
 const app = express().use(body_parser.json());
 
 const token = process.env.TOKEN;
-const mytoken = process.env.MYTOKEN; //prasath_token
+const mytoken = process.env.MYTOKEN; // Verification token
 
-app.listen(process.env.PORT, () => {
-  console.log("webhook is listening");
-});
-
-//to verify the callback url from dashboard side - cloud api side
+// Webhook verification (GET request)
 app.get("/webhook", (req, res) => {
   let mode = req.query["hub.mode"];
-  let challange = req.query["hub.challenge"];
-  let token = req.query["hub.verify_token"];
+  let challenge = req.query["hub.challenge"];
+  let verify_token = req.query["hub.verify_token"];
 
-  if (mode && token) {
-    if (mode === "subscribe" && token === mytoken) {
-      res.status(200).send(challange);
+  if (mode && verify_token) {
+    if (mode === "subscribe" && verify_token === mytoken) {
+      console.log("✅ Webhook Verified!");
+      res.status(200).send(challenge);
     } else {
-      res.status(403);
+      res.sendStatus(403);
     }
+  } else {
+    res.sendStatus(400);
   }
 });
 
+// Webhook message handling (POST request)
 app.post("/webhook", (req, res) => {
-  //i want some
+  const body = req.body;
 
-  let body_param = req.body;
+  console.log("🔔 Incoming Webhook:\n", JSON.stringify(body, null, 2));
 
-  console.log(JSON.stringify(body_param, null, 2));
+  if (body.object && body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
+    const message = body.entry[0].changes[0].value.messages[0];
+    const from = message.from;
+    const text = message.text?.body;
+    const phone_number_id =
+      body.entry[0].changes[0].value.metadata.phone_number_id;
 
-  if (body_param.object) {
-    console.log("inside body param");
-    if (
-      body_param.entry &&
-      body_param.entry[0].changes &&
-      body_param.entry[0].changes[0].value.messages &&
-      body_param.entry[0].changes[0].value.messages[0]
-    ) {
-      let phon_no_id =
-        body_param.entry[0].changes[0].value.metadata.phone_number_id;
-      let from = body_param.entry[0].changes[0].value.messages[0].from;
-      let msg_body = body_param.entry[0].changes[0].value.messages[0].text.body;
-
-      console.log("phone number " + phon_no_id);
-      console.log("from " + from);
-      console.log("boady param " + msg_body);
-
-      axios({
-        method: "POST",
-        url:
-          "https://graph.facebook.com/v13.0/" +
-          phon_no_id +
-          "/messages?access_token=" +
-          token,
-        data: {
+    // Auto-reply via WhatsApp Cloud API
+    axios
+      .post(
+        `https://graph.facebook.com/v17.0/${phone_number_id}/messages?access_token=${token}`,
+        {
           messaging_product: "whatsapp",
           to: from,
-          text: {
-            body: "Hi.. I'm Prasath, your message is " + msg_body,
-          },
+          text: { body: `Hi.. I'm Prasath, your message is: "${text}"` },
         },
-        headers: {
-          "Content-Type": "application/json",
-        },
+        { headers: { "Content-Type": "application/json" } }
+      )
+      .then(() => {
+        console.log("✅ Message sent!");
+      })
+      .catch((err) => {
+        console.error(
+          "❌ Failed to send message:",
+          err.response?.data || err.message
+        );
       });
 
-      res.sendStatus(200);
-    } else {
-      res.sendStatus(404);
-    }
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(404);
   }
 });
 
+// Root route
 app.get("/", (req, res) => {
-  res.status(200).send("hello this is webhook setup");
+  res.status(200).send("✅ Webhook is ready.");
 });
 
-module.exports = serverless(app);
+// Export as serverless function
+module.exports = app;
+module.exports.handler = serverless(app);
