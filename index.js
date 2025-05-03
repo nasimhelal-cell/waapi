@@ -32,8 +32,6 @@ app.get("/webhook", (req, res) => {
 app.post("/webhook", (req, res) => {
   const body = req.body;
 
-  console.log("🔔 Incoming Webhook:\n", JSON.stringify(body, null, 2));
-
   if (body.object && body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
     const message = body.entry[0].changes[0].value.messages[0];
     const from = message.from;
